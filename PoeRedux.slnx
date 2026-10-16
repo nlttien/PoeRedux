@@ -1,3 +1,5 @@
 <Solution>
   <Project Path="PoeRedux/PoeRedux.csproj" />
+  <Project Path="PoeRedux.Core/PoeRedux.Core.csproj" />
+  <Project Path="PoeRedux.Cli/PoeRedux.Cli.csproj" />
 </Solution>

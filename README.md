@@ -100,6 +100,24 @@
 
 **Note:** The application is self-contained and includes all required dependencies.
 
+## Linux (command line)
+
+`PoeRedux.Cli` runs natively on Linux, with no Wine needed. It uses `liboo2core.so` from the LibGGPK3 v2.7.5 linux-x64 release.
+
+```bash
+dotnet publish PoeRedux.Cli -c Release -r linux-x64 --self-contained -o ~/poeredux
+G=/path/to/Path\ of\ Exile/Content.ggpk
+~/poeredux/poeredux list                       # list the patches
+~/poeredux/poeredux apply "$G" fog shadow      # patch, then re-read Content.ggpk to verify every file
+~/poeredux/poeredux status "$G"                # each backed-up file: patched / original / updated by the game
+~/poeredux/poeredux restore "$G"               # safe restore: skips files the game updated after patching
+~/poeredux/poeredux repair "$G" --dry-run      # no backup? compare with the game's CDN and restore originals
+```
+
+- Commands refuse to run while the game has `Content.ggpk` open, or when the drive has less than 2 GB free.
+- Backups go to `<game dir>/PoeReduxBackups/`, on the same drive as the game. Each backup stores checksums of the original and the patched content.
+- `black-screen` needs `--allow-black-screen`, because it makes the game screen black by design.
+
 ## Verifying Game Files
 
 ### For Standalone Client Users

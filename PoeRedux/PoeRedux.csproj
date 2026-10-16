@@ -11,6 +11,8 @@
     <Version>1.1.17</Version>
     <!-- Disables CET / shadow-stack on the exe to avoid a fatal startup crash (0x80131506) caused by the native non-CET-aware oo2core.dll. See issue #29. -->
     <CETCompat>false</CETCompat>
+    <!-- Cho phép build bản Windows từ Linux (dotnet build trên Linux). -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
@@ -27,7 +29,7 @@
   </ItemGroup>
   
   <ItemGroup>
-    <PackageReference Include="LibGGPK3.LibBundledGGPK3" Version="2.7.5" />
+    <ProjectReference Include="..\PoeRedux.Core\PoeRedux.Core.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,4 +1,4 @@
-using LibBundledGGPK3;
+﻿using LibBundledGGPK3;
 using Microsoft.Win32;
 using PoeRedux.Models;
 using PoeRedux.Patches;
@@ -355,7 +355,7 @@ public partial class MainWindow : Window
         ProgressBar.Maximum = fileCount;
         ProgressBar.Value = 0;
 
-        int restored = 0;
+        RestoreReport? report = null;
         try
         {
             await Task.Run(() =>
@@ -373,16 +373,14 @@ public partial class MainWindow : Window
                 {
                     using var index = new LibBundle3.Index(_ggpkPath, false);
                     index.ParsePaths();
-                    restored = BackupManager.Restore(index, game, Progress);
-                    index.Save();
+                    report = BackupManager.RestoreSafe(index, game, false, Progress);
                 }
                 else if (_ggpkPath.EndsWith(".ggpk", StringComparison.OrdinalIgnoreCase))
                 {
                     using BundledGGPK ggpk = new(_ggpkPath, false);
                     var index = ggpk.Index;
                     index.ParsePaths();
-                    restored = BackupManager.Restore(index, game, Progress);
-                    index.Save();
+                    report = BackupManager.RestoreSafe(index, game, false, Progress);
                 }
                 else
                 {
@@ -390,9 +388,20 @@ public partial class MainWindow : Window
                 }
             });
 
-            BackupManager.DeleteBackup(game);
-            StatusTextBlock.Text = $"Restored {restored} file(s) to original.";
-            MessageBox.Show($"Restored {restored} file(s) to original.\n\nBackup cleared.", "Restore Complete");
+            var r = report!;
+            var summary = $"Restored {r.Restored} file(s) to original.";
+            if (r.SkippedChanged > 0)
+                summary += $"\n\nSkipped {r.SkippedChanged} file(s): " + (r.Legacy
+                    ? "old backup without checksums, cannot tell if it is safe."
+                    : "the game updated them after patching, so the backup is outdated.")
+                    + " Run PackCheck.exe if the game still looks wrong.";
+            if (r.Complete)
+            {
+                BackupManager.DeleteBackup(game);
+                summary += "\n\nBackup cleared.";
+            }
+            StatusTextBlock.Text = $"Restored {r.Restored} file(s) to original.";
+            MessageBox.Show(summary, "Restore Complete");
         }
         catch (Exception ex)
         {

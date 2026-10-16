@@ -102,6 +102,9 @@
 
 ## Linux (command line)
 
+GUI: `scripts/install-linux.sh` adds a **PoeRedux** shortcut to the app menu and the Desktop. Click it, tick the patches you want, and press OK.
+
+
 `PoeRedux.Cli` runs natively on Linux, with no Wine needed. It uses `liboo2core.so` from the LibGGPK3 v2.7.5 linux-x64 release.
 
 ```bash

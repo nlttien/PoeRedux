@@ -56,30 +56,7 @@ public partial class MainWindow : Window
 
     private void InitializePoe1Patches()
     {
-        var patchInstances = new IPatch[]
-        {
-            new Camera(),
-            new Minimap(),
-            new ColorMods(),
-            new MonsterHP(),
-            new Fog(),
-            new EnvironmentParticles(),
-            new Shadow(),
-            new Light(),
-            new Corpse(),
-            new Delirium(),
-            new Particles(),
-            new Effects(),
-            new BlackScreen(),
-            // new Aoc(),
-            // new Env(),
-            // new Epk(),
-            // new Ffx(),
-            // new Hlsl(),
-            // new Mat(),
-            // new NoCorpse(),
-            // new Pet(),
-        };
+        var patchInstances = PatchCatalog.For(PoeGame.PoE1);
 
         foreach (var patch in patchInstances)
         {
@@ -96,32 +73,7 @@ public partial class MainWindow : Window
 
     private void InitializePoe2Patches()
     {
-        var patchInstances = new IPatch[]
-        {
-            new Camera(),
-            new Minimap(),
-            new ColorMods2(),
-            new MonsterHP(),
-            new AtlasFog(),
-            new Fog(),
-            new Rain(),
-            new Clouds(),
-            new EnvironmentParticles2(),
-            new Shadow(),
-            new Light(),
-            new Delirium(),
-            new Particles(),
-            new Effects(),
-            new BlackScreen(),
-            // new Aoc(),
-            // new Env(),
-            // new Epk(),
-            // new Ffx(),
-            // new Hlsl(),
-            // new Mat(),
-            // new NoCorpse(),
-            // new Pet(),
-        };
+        var patchInstances = PatchCatalog.For(PoeGame.PoE2);
 
         foreach (var patch in patchInstances)
         {

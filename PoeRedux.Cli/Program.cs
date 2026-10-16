@@ -10,9 +10,11 @@ var argv = args.ToList();
 var game = Option("--game") is "poe2" ? PoeGame.PoE2 : PoeGame.PoE1;
 var zoom = Option("--zoom") is { } z ? double.Parse(z, CultureInfo.InvariantCulture) : 2.4;
 var backupDir = Option("--backup-dir");
+var monsterIcon = Option("--monster-icon");
 var force = Flag("--force");
 var allowBlack = Flag("--allow-black-screen");
 var dryRun = Flag("--dry-run");
+var raw = Flag("--raw");
 var cdnOpt = Option("--cdn");
 
 if (argv.Count == 0 || argv[0] is "-h" or "--help" or "help")
@@ -28,6 +30,7 @@ try
         "restore" when argv.Count >= 2 => Restore(Ggpk(argv[1])),
         "cat" when argv.Count >= 3 => Cat(Ggpk(argv[1]), argv[2]),
         "ls" when argv.Count >= 3 => Ls(Ggpk(argv[1]), argv[2]),
+        "grep" when argv.Count >= 4 => Grep(Ggpk(argv[1]), argv[2], argv[3]),
         "repair" when argv.Count >= 2 => RepairCmd(Ggpk(argv[1])),
         _ => Usage(),
     };
@@ -50,11 +53,14 @@ int Usage()
           poeredux repair <Content.ggpk> [--dry-run]        KHÔNG cần backup: so với file gốc trên CDN của game, tải
                                                             bản gốc về ghi đè mọi file bị sửa (chữa màn hình đen)
           poeredux ls <Content.ggpk> <thư mục>              liệt kê file trong game (vd: metadata/monsters)
-          poeredux cat <Content.ggpk> <file>                in nội dung 1 file (tự giải mã UTF-16) — để viết patch
+          poeredux grep <Content.ggpk> <thư mục> <chuỗi>    tìm file văn bản (.ot/.otc/.ao/.epk/.hlsl…) có chuỗi
+          poeredux cat <Content.ggpk> <file>                in nội dung 1 file (tự giải mã UTF-16; --raw = byte gốc)
 
         Tuỳ chọn:
           --game poe1|poe2        mặc định poe1
-          --zoom 2.4              mức zoom cho patch camera (1.2–2.4)
+          --zoom 2.4              mức zoom cho patch camera (1.2–2.4, lớn = nhìn xa hơn)
+          --monster-icon <tên>    icon cho patch monster-icons (mặc định LootFilterSmallRedCircle;
+                                  tên khác: LootFilterMediumYellowStar, ExpeditionRegularMonster…)
           --backup-dir <dir>      mặc định: <thư mục game>/PoeReduxBackups (cùng ổ với game)
           --allow-black-screen    cho phép patch black-screen (làm màn hình ĐEN — đúng chức năng của nó)
           --force                 restore cả backup cũ không có mã băm (bản PoeRedux trước)
@@ -80,6 +86,9 @@ int Apply(string ggpk, List<string> names)
         throw new CliError("patch black-screen làm màn hình game ĐEN (đúng chức năng). Muốn thật thì thêm --allow-black-screen");
     foreach (var p in chosen.OfType<Camera>())
         p.ZoomLevel = Math.Clamp(zoom, 1.2, 2.4);
+    if (monsterIcon != null)
+        foreach (var p in chosen.OfType<MonsterIcons>())
+            p.Icon = monsterIcon;
 
     Preflight(ggpk);
     Console.WriteLine($"Backup: {BackupManager.GetBackupFilePath(game)}");
@@ -266,6 +275,33 @@ int Ls(string ggpk, string dir)
     return 0;
 }
 
+int Grep(string ggpk, string dir, string needle)
+{
+    using var bundled = new BundledGGPK(ggpk, false);
+    bundled.Index.ParsePaths();
+    if (!bundled.Index.TryFindNode(dir.Trim('/'), out var node))
+        throw new CliError($"không có thư mục '{dir}'");
+    string[] text = [".ot", ".otc", ".ao", ".aoc", ".epk", ".hlsl", ".ffx", ".fxgraph", ".txt", ".it", ".itc", ".mat", ".env", ".json"];
+    var files = LibBundle3.Index.Recursefiles(node).Where(f => text.Contains(Path.GetExtension(f.Name))).Select(f => f.Record).ToList();
+    int hits = 0;
+    foreach (var r in LibBundle3.Index.SortByBundle(files))
+    {
+        var t = Decode(r.Read().Span);
+        var i = t.IndexOf(needle, StringComparison.OrdinalIgnoreCase);
+        if (i < 0) continue;
+        var line = t[(t.LastIndexOf('\n', i) + 1)..];
+        var end = line.IndexOf('\n');
+        Console.WriteLine($"{r.Path}: {(end < 0 ? line : line[..end]).Trim()}");
+        hits++;
+    }
+    Console.Error.WriteLine($"{hits}/{files.Count} file khớp");
+    return 0;
+}
+
+static string Decode(ReadOnlySpan<byte> bytes) => bytes.Length >= 2 && bytes[0] == 0xFF && bytes[1] == 0xFE
+    ? System.Text.Encoding.Unicode.GetString(bytes[2..])
+    : System.Text.Encoding.UTF8.GetString(bytes);
+
 int Cat(string ggpk, string file)
 {
     using var bundled = new BundledGGPK(ggpk, false);
@@ -273,6 +309,12 @@ int Cat(string ggpk, string file)
     if (!bundled.Index.TryGetFile(file.Trim('/'), out var record))
         throw new CliError($"không có file '{file}'");
     var bytes = record.Read().Span;
+    if (raw)
+    {
+        using var stdout = Console.OpenStandardOutput();
+        stdout.Write(bytes);
+        return 0;
+    }
     // File văn bản của PoE (.ot, .otc, .epk, .ao…) là UTF-16 LE có BOM FF FE.
     var text = bytes.Length >= 2 && bytes[0] == 0xFF && bytes[1] == 0xFE
         ? System.Text.Encoding.Unicode.GetString(bytes[2..])

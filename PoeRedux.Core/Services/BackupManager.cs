@@ -185,7 +185,7 @@ public static class BackupManager
     /// File game đã cập nhật (khác cả 2 mã băm) thì bỏ qua — ghi bản gốc cũ đè lên sẽ làm game lệch phiên bản.
     /// Backup cũ không có mã băm: chỉ restore khi <paramref name="force"/>.
     /// </summary>
-    public static RestoreReport RestoreSafe(LibBundle3.Index index, PoeGame game, bool force = false, Action<int, int>? progress = null)
+    public static RestoreReport RestoreSafe(LibBundle3.Index index, PoeGame game, bool force = false, Action<int, int>? progress = null, ICollection<string>? only = null)
     {
         var path = GetBackupFilePath(game);
         if (!File.Exists(path)) return new RestoreReport(0, 0, 0, 0, false);
@@ -193,7 +193,7 @@ public static class BackupManager
         using var zip = ZipFile.OpenRead(path);
         var manifest = ReadManifest(zip);
         var legacy = manifest == null;
-        var entries = zip.Entries.Where(IsDataEntry).ToList();
+        var entries = zip.Entries.Where(IsDataEntry).Where(e => only == null || only.Contains(e.FullName)).ToList();
         int restored = 0, original = 0, changed = 0, missing = 0, done = 0;
 
         foreach (var entry in entries)

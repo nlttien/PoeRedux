@@ -27,7 +27,7 @@ try
         "list" => List(),
         "apply" when argv.Count >= 3 => Apply(Ggpk(argv[1]), argv.Skip(2).ToList()),
         "status" when argv.Count >= 2 => Status(Ggpk(argv[1])),
-        "restore" when argv.Count >= 2 => Restore(Ggpk(argv[1])),
+        "restore" when argv.Count >= 2 => Restore(Ggpk(argv[1]), argv.Skip(2).Select(f => f.Trim('/').ToLowerInvariant()).ToList()),
         "cat" when argv.Count >= 3 => Cat(Ggpk(argv[1]), argv[2]),
         "ls" when argv.Count >= 3 => Ls(Ggpk(argv[1]), argv[2]),
         "grep" when argv.Count >= 4 => Grep(Ggpk(argv[1]), argv[2], argv[3]),
@@ -49,7 +49,7 @@ int Usage()
           poeredux list [--game poe1|poe2]                  liệt kê patch
           poeredux apply <Content.ggpk> <patch>... [opts]   patch, rồi tự đọc lại kiểm tra từng file
           poeredux status <Content.ggpk> [--game ...]       file nào đang patch / gốc / game đã cập nhật
-          poeredux restore <Content.ggpk> [--force]         restore an toàn (bỏ qua file game đã cập nhật)
+          poeredux restore <Content.ggpk> [file…] [--force] restore an toàn (chỉ các file nêu, nếu có) (bỏ qua file game đã cập nhật)
           poeredux repair <Content.ggpk> [--dry-run]        KHÔNG cần backup: so với file gốc trên CDN của game, tải
                                                             bản gốc về ghi đè mọi file bị sửa (chữa màn hình đen)
           poeredux ls <Content.ggpk> <thư mục>              liệt kê file trong game (vd: metadata/monsters)
@@ -179,7 +179,7 @@ int Status(string ggpk)
     return 0;
 }
 
-int Restore(string ggpk)
+int Restore(string ggpk, List<string> only)
 {
     if (!BackupManager.HasBackup(game))
         throw new CliError($"không có backup ({BackupManager.GetBackupFilePath(game)}) — dùng PackCheck.exe để sửa file game");
@@ -188,14 +188,14 @@ int Restore(string ggpk)
     using (var bundled = new BundledGGPK(ggpk, false))
     {
         bundled.Index.ParsePaths();
-        r = BackupManager.RestoreSafe(bundled.Index, game, force);
+        r = BackupManager.RestoreSafe(bundled.Index, game, force, null, only.Count > 0 ? only : null);
     }
     Console.WriteLine($"Đã restore {r.Restored} file · đã là bản gốc {r.AlreadyOriginal} · bỏ qua {r.SkippedChanged} · không còn trong game {r.Missing}");
     if (r.Legacy && !force && r.SkippedChanged > 0)
         Console.WriteLine("  Backup cũ (không có mã băm) — không biết file nào an toàn. Chắc chắn game CHƯA cập nhật từ lúc patch thì chạy lại với --force; không thì dùng PackCheck.exe.");
     else if (r.SkippedChanged > 0)
         Console.WriteLine("  File bị bỏ qua: game đã cập nhật chúng sau khi patch → bản gốc trong backup đã cũ. Dùng PackCheck.exe nếu game lỗi.");
-    if (r.Complete && r.SkippedChanged == 0)
+    if (r.Complete && r.SkippedChanged == 0 && only.Count == 0)
     {
         BackupManager.DeleteBackup(game);
         Console.WriteLine("  Backup đã xong việc — đã xoá.");

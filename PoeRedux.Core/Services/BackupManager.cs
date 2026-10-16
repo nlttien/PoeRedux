@@ -121,6 +121,25 @@ public static class BackupManager
         }
     }
 
+    /// <summary>
+    /// Nội dung gốc của file: lấy từ backup nếu file đã từng bị patch (để patch theo hệ số không bị cộng dồn khi áp lại),
+    /// không thì đọc thẳng từ game. Gọi trong phiên Begin/End.
+    /// </summary>
+    public static byte[] ReadOriginal(FileRecord record)
+    {
+        lock (_lock)
+        {
+            if (_zip != null && _knownPaths != null && _knownPaths.Contains(record.Path) && _zip.GetEntry(record.Path) is { } entry)
+            {
+                using var ms = new MemoryStream();
+                using (var es = entry.Open())
+                    es.CopyTo(ms);
+                return ms.ToArray();
+            }
+        }
+        return record.Read().ToArray();
+    }
+
     public static void RecordOriginal(FileRecord record)
     {
         if (record == null) return;

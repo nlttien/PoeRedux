@@ -20,11 +20,12 @@ GGPK="/games/nonsteam/POE/Content.ggpk"
 GAME="poe1"
 LAST_PATCHES="camera"
 ZOOM="2.4"
+EFFECTS="50"
 # shellcheck source=/dev/null
 [ -f "$CONF" ] && . "$CONF"
 
 save() {
-    printf 'GGPK=%q\nGAME=%q\nLAST_PATCHES=%q\nZOOM=%q\n' "$GGPK" "$GAME" "$LAST_PATCHES" "$ZOOM" > "$CONF"
+    printf 'GGPK=%q\nGAME=%q\nLAST_PATCHES=%q\nZOOM=%q\nEFFECTS=%q\n' "$GGPK" "$GAME" "$LAST_PATCHES" "$ZOOM" "$EFFECTS" > "$CONF"
 }
 
 err() { zenity --error --title="$TITLE" --width=420 --text="$1" 2>/dev/null; }
@@ -78,6 +79,11 @@ do_patch() {
             --min-value=12 --max-value=24 --step=1 --value="$(awk -v z="$ZOOM" 'BEGIN{print int(z*10+0.5)}')" 2>/dev/null) || return
         ZOOM=$(awk -v z="$z" 'BEGIN{printf "%.1f", z/10}')
         args+=(--zoom "$ZOOM")
+    fi
+    if [[ " $chosen " == *" reduce-effects "* ]]; then
+        EFFECTS=$(zenity --scale --title="$TITLE — giảm hiệu ứng kỹ năng" --text="Giữ lại bao nhiêu % hạt hiệu ứng (50 = giảm một nửa)" \
+            --min-value=5 --max-value=95 --step=5 --value="$EFFECTS" 2>/dev/null) || return
+        args+=(--effects "$(awk -v e="$EFFECTS" 'BEGIN{printf "%.2f", e/100}')")
     fi
     LAST_PATCHES="$chosen"
     save

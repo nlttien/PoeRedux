@@ -11,6 +11,7 @@ var game = Option("--game") is "poe2" ? PoeGame.PoE2 : PoeGame.PoE1;
 var zoom = Option("--zoom") is { } z ? double.Parse(z, CultureInfo.InvariantCulture) : 2.4;
 var backupDir = Option("--backup-dir");
 var monsterIcon = Option("--monster-icon");
+var effects = Option("--effects") is { } ef ? double.Parse(ef, CultureInfo.InvariantCulture) : 0.5;
 var force = Flag("--force");
 var allowBlack = Flag("--allow-black-screen");
 var dryRun = Flag("--dry-run");
@@ -31,6 +32,7 @@ try
         "cat" when argv.Count >= 3 => Cat(Ggpk(argv[1]), argv[2]),
         "ls" when argv.Count >= 3 => Ls(Ggpk(argv[1]), argv[2]),
         "grep" when argv.Count >= 4 => Grep(Ggpk(argv[1]), argv[2], argv[3]),
+        "preview-reduce" when argv.Count >= 3 => PreviewReduce(Ggpk(argv[1]), argv[2]),
         "repair" when argv.Count >= 2 => RepairCmd(Ggpk(argv[1])),
         _ => Usage(),
     };
@@ -59,6 +61,7 @@ int Usage()
         Tuỳ chọn:
           --game poe1|poe2        mặc định poe1
           --zoom 2.4              mức zoom cho patch camera (1.2–2.4, lớn = nhìn xa hơn)
+          --effects 0.5           reduce-effects: phần hiệu ứng giữ lại (0.5 = còn 50%, 0.3 = còn 30%)
           --monster-icon <tên>    icon cho patch monster-icons (mặc định LootFilterSmallRedCircle;
                                   tên khác: LootFilterMediumYellowStar, ExpeditionRegularMonster…)
           --backup-dir <dir>      mặc định: <thư mục game>/PoeReduxBackups (cùng ổ với game)
@@ -86,6 +89,8 @@ int Apply(string ggpk, List<string> names)
         throw new CliError("patch black-screen làm màn hình game ĐEN (đúng chức năng). Muốn thật thì thêm --allow-black-screen");
     foreach (var p in chosen.OfType<Camera>())
         p.ZoomLevel = Math.Clamp(zoom, 1.2, 2.4);
+    foreach (var p in chosen.OfType<ReduceEffects>())
+        p.Factor = Math.Clamp(effects, 0.05, 0.95);
     if (monsterIcon != null)
         foreach (var p in chosen.OfType<MonsterIcons>())
             p.Icon = monsterIcon;
@@ -264,6 +269,20 @@ int RepairCmd(string ggpk)
     return r;
 }
 
+int PreviewReduce(string ggpk, string file)
+{
+    using var bundled = new BundledGGPK(ggpk, false);
+    bundled.Index.ParsePaths();
+    if (!bundled.Index.TryGetFile(file.Trim('/'), out var record))
+        throw new CliError($"không có file '{file}'");
+    var before = Decode(record.Read().Span).Split('\n');
+    var after = new ReduceEffects { Factor = effects }.Reduce(string.Join('\n', before)).Split('\n');
+    for (int i = 0; i < before.Length; i++)
+        if (before[i] != after[i])
+            Console.WriteLine($"- {before[i].Trim()}\n+ {after[i].Trim()}");
+    return 0;
+}
+
 int Ls(string ggpk, string dir)
 {
     using var bundled = new BundledGGPK(ggpk, false);
@@ -281,7 +300,7 @@ int Grep(string ggpk, string dir, string needle)
     bundled.Index.ParsePaths();
     if (!bundled.Index.TryFindNode(dir.Trim('/'), out var node))
         throw new CliError($"không có thư mục '{dir}'");
-    string[] text = [".ot", ".otc", ".ao", ".aoc", ".epk", ".hlsl", ".ffx", ".fxgraph", ".txt", ".it", ".itc", ".mat", ".env", ".json"];
+    string[] text = [".pet", ".trl", ".ot", ".otc", ".ao", ".aoc", ".epk", ".hlsl", ".ffx", ".fxgraph", ".txt", ".it", ".itc", ".mat", ".env", ".json"];
     var files = LibBundle3.Index.Recursefiles(node).Where(f => text.Contains(Path.GetExtension(f.Name))).Select(f => f.Record).ToList();
     int hits = 0;
     foreach (var r in LibBundle3.Index.SortByBundle(files))

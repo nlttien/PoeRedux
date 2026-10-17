@@ -14,6 +14,8 @@ namespace PoeRedux.Patches;
 /// Bản 4: dùng object CHỈ CLIENT (BaseEvents { client_only = true } — như quạ/nhện game tự sinh, server không biết tới):
 ///   · <see cref="MarkerPath"/> (nhện của áo choàng MTX WitchDoctor, chỉ áo đó dùng) bị thay thành "điểm đánh dấu": có MinimapIcon,
 ///     mỗi 0.1s MoveToObject( parent, force ) bám theo quái đã sinh ra nó; quái không còn → tự Delete().
+///     Quái cùng phe với nhân vật mình (minion/spectre — GetTeam() như vaaloverseer.ot, GetLocalPlayer() như goldtrackingtreasurer.ot)
+///     → Delete(): IfStat( is_player_minion ) lúc xuất hiện KHÔNG lọc được (thử 2026-10-17, minion vẫn có icon).
 ///   · monster.ot chỉ thêm khối client { Life { … } }: quái xuất hiện (không phải minion người chơi) → SpawnObject(điểm đánh dấu);
 ///     quái chết → xoá điểm đánh dấu. Mẫu: witchdoctorcloakheld.ao (SpawnObject critter), theelderuber.ot (MoveToObject … force).
 /// CHƯA thử trong game. Lỗi → fix-hideout gỡ monster.ot (điểm đánh dấu không ai sinh ra thì vô hại).
@@ -90,7 +92,11 @@ public class MonsterIcons : IPatch
         "\t{",
         "\t\ton_timer_follow =",
         "\t\t{",
-        "\t\t\tIf( VariableExists( parent ), (){ MoveToObject( parent, force ); StartStateTimer( follow, 0.1, 0.1 ); }, (){ Delete(); } );",
+        "\t\t\tIf( VariableExists( parent ), ()",
+        "\t\t\t{",
+        "\t\t\t\tlocal player = GetLocalPlayer();",
+        "\t\t\t\tIf( parent.GetTeam() == player.GetTeam(), (){ Delete(); }, (){ MoveToObject( parent, force ); StartStateTimer( follow, 0.1, 0.1 ); } );",
+        "\t\t\t}, (){ Delete(); } );",
         "\t\t}",
         "\t}",
         "}",

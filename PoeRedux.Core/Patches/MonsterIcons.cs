@@ -5,73 +5,119 @@ using PoeRedux.Services;
 namespace PoeRedux.Patches;
 
 /// <summary>
-/// Bản 2 làm game TREO khi vào hideout (minion/spectre cũng kế thừa monster.ot). Bản 3 (2026-10-17): minion của người chơi
-/// tự ẩn icon lúc xuất hiện — client { Life { on_spawned_alive = IfStat( is_player_minion, 1, HideMinimapIcon ) } }
-/// (IfStat như hellscapemonsterbase.ot). ✗ THỬ 2026-10-17: VẪN treo hideout (ngay từ town về) → lại bỏ khỏi PatchCatalog.
-/// Treo do chính component MinimapIcon trên entity ở hideout, không phải do icon hiện ra.
-/// Thêm icon minimap cho mọi quái, theo đúng bố cục quái Prophecy của game (vd prophecyspider.ot):
-/// MinimapIcon ở tầng chung của metadata/monsters/monster.ot (mọi quái kế thừa) + client { Life { on_death = HideMinimapIcon() } }.
-/// KHÔNG đặt MinimapIcon chỉ trong client { } — game báo "Component MinimapIcon does not exist" khi object chưa có component đó.
+/// Icon minimap cho quái — bản 4 (2026-10-17), KHÔNG thêm component phía server vào quái.
+///
+/// Vì sao bản 1–3 hỏng: MinimapIcon là component chung client/server. Thêm nó vào monster.ot ở máy mình thì danh sách
+/// component lệch với server → vùng đầu (town, không quái) vào được, vùng có quái/minion thì treo / báo lỗi rồi disconnect.
+/// Đặt chỉ trong client { } thì "Component MinimapIcon does not exist" (client chỉ bổ sung component đã có).
+///
+/// Bản 4: dùng object CHỈ CLIENT (BaseEvents { client_only = true } — như quạ/nhện game tự sinh, server không biết tới):
+///   · <see cref="MarkerPath"/> (nhện của áo choàng MTX WitchDoctor, chỉ áo đó dùng) bị thay thành "điểm đánh dấu": có MinimapIcon,
+///     mỗi 0.1s MoveToObject( parent, force ) bám theo quái đã sinh ra nó; quái không còn → tự Delete().
+///   · monster.ot chỉ thêm khối client { Life { … } }: quái xuất hiện (không phải minion người chơi) → SpawnObject(điểm đánh dấu);
+///     quái chết → xoá điểm đánh dấu. Mẫu: witchdoctorcloakheld.ao (SpawnObject critter), theelderuber.ot (MoveToObject … force).
+/// CHƯA thử trong game. Lỗi → fix-hideout gỡ monster.ot (điểm đánh dấu không ai sinh ra thì vô hại).
 /// </summary>
 public class MonsterIcons : IPatch
 {
     private const string Marker = "// PoeRedux: monster minimap icons";
+    public const string MarkerPath = "metadata/critters/spider/witchdoctorspidercloak.ot";
+    private const string MarkerMeta = "Metadata/Critters/Spider/WitchDoctorSpiderCloak";
 
     public string Name => "Monster Icons Patch (Experimental)";
-    public object Description => "Shows every monster as an icon on the minimap.";
+    public object Description => "Shows every monster as an icon on the minimap (client-only marker objects).";
 
     /// <summary>Tên trong data/minimapicons (vd LootFilterSmallRedCircle, LootFilterMediumYellowStar, ExpeditionRegularMonster).</summary>
     public string Icon { get; set; } = "LootFilterSmallRedCircle";
 
     public void Apply(DirectoryNode root)
     {
-        var monsters = root.Children.OfType<DirectoryNode>().FirstOrDefault(d => d.Name == "metadata")?
-            .Children.OfType<DirectoryNode>().FirstOrDefault(d => d.Name == "monsters");
-        var file = monsters?.Children.OfType<FileNode>().FirstOrDefault(f => f.Name == "monster.ot");
-        if (file is null)
+        if (Find(root, "metadata/monsters/monster.ot") is not { } monster || Find(root, MarkerPath) is not { } marker)
             return;
 
-        var record = file.Record;
-        string data = Encoding.Unicode.GetString(record.Read().ToArray());
-        List<string> lines = data.Split("\r\n").ToList();
+        Write(marker.Record, MarkerObject());
 
-        // Đã patch (có thể với icon khác / bản cũ đặt trong client) → bỏ mọi khối cũ rồi chèn lại
-        for (int old; (old = lines.FindIndex(l => l.Contains(Marker) && !l.Contains(Marker + " end"))) != -1;)
-        {
-            int end = lines.FindIndex(old, l => l.Contains(Marker + " end"));
-            if (end == -1) return;
-            lines.RemoveRange(old, end - old + 1);
-        }
-
-        int client = lines.FindIndex(l => l.Trim() == "client");
+        // monster.ot luôn tính từ bản gốc → áp lại (đổi icon, bản cũ) không chồng khối
+        var original = BackupManager.ReadOriginal(monster.Record);
+        var lines = Decode(original).Split("\r\n").ToList();
         int close = lines.FindLastIndex(l => l.Trim() == "}");
-        if (client == -1 || close <= client)
-            return;
+        if (lines.FindIndex(l => l.Trim() == "client") is var client and >= 0 && close > client)
+        {
+            lines.InsertRange(close,
+            [
+                $"\t{Marker}",
+                "\tLife",
+                "\t{",
+                $"\t\ton_spawned_alive = {{ IfStat( is_player_minion, 1, {{}}, {{ this.poeredux_marker = SpawnObject( '{MarkerMeta}' ); }} ); }}",
+                "\t\ton_death = { IfExists( poeredux_marker, (){ poeredux_marker.Delete(); }, (){} ); }",
+                "\t}",
+                $"\t{Marker} end",
+            ]);
+            Write(monster.Record, string.Join("\r\n", lines));
+        }
+    }
 
-        // client { Life { … } } trước (chỉ số sau client), rồi MinimapIcon tầng chung ngay trước dòng "client"
-        lines.InsertRange(close,
-        [
-            $"\t{Marker}",
-            "\tLife",
-            "\t{",
-            "\t\ton_spawned_alive = { IfStat( is_player_minion, 1, { HideMinimapIcon(); } ); }",
-            "\t\ton_death = { HideMinimapIcon(); }",
-            "\t\ton_spawned_dead = { HideMinimapIcon(); }",
-            "\t}",
-            $"\t{Marker} end",
-        ]);
-        lines.InsertRange(client,
-        [
-            Marker,
-            "MinimapIcon",
-            "{",
-            $"\ticon = \"{Icon}\"",
-            "}",
-            $"{Marker} end",
-            "",
-        ]);
+    private string MarkerObject() => string.Join("\r\n",
+    [
+        "version 3",
+        "extends \"nothing\"",
+        "",
+        Marker,
+        "BaseEvents",
+        "{",
+        "\tclient_only = true",
+        "}",
+        "",
+        "Positioned",
+        "{",
+        "\tobject_size = 0",
+        "\tblocking = false",
+        "}",
+        "",
+        "MinimapIcon",
+        "{",
+        $"\ticon = \"{Icon}\"",
+        "}",
+        "",
+        "client",
+        "{",
+        "\tBaseEvents",
+        "\t{",
+        "\t\ton_construction_complete = { StartStateTimer( follow, 0.1, 0.1 ); }",
+        "\t}",
+        "",
+        "\tStateMachine",
+        "\t{",
+        "\t\ton_timer_follow =",
+        "\t\t{",
+        "\t\t\tIf( VariableExists( parent ), (){ MoveToObject( parent, force ); StartStateTimer( follow, 0.1, 0.1 ); }, (){ Delete(); } );",
+        "\t\t}",
+        "\t}",
+        "}",
+        "",
+    ]);
 
+    private static void Write(LibBundle3.Records.FileRecord record, string text)
+    {
+        byte[] bytes = [0xFF, 0xFE, .. Encoding.Unicode.GetBytes(text)];
+        if (bytes.AsSpan().SequenceEqual(record.Read().Span)) return;
         BackupManager.RecordOriginal(record);
-        record.Write(Encoding.Unicode.GetBytes(string.Join("\r\n", lines)));
+        record.Write(bytes);
+    }
+
+    private static string Decode(byte[] b) => b.Length >= 2 && b[0] == 0xFF && b[1] == 0xFE
+        ? Encoding.Unicode.GetString(b, 2, b.Length - 2)
+        : Encoding.UTF8.GetString(b);
+
+    private static FileNode? Find(DirectoryNode root, string path)
+    {
+        var parts = path.Split('/');
+        var dir = root;
+        foreach (var name in parts[..^1])
+        {
+            dir = dir.Children.OfType<DirectoryNode>().FirstOrDefault(d => d.Name == name);
+            if (dir is null) return null;
+        }
+        return dir.Children.OfType<FileNode>().FirstOrDefault(f => f.Name == parts[^1]);
     }
 }

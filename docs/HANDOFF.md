@@ -18,8 +18,12 @@
    gây lỗi nên restore bất kể trạng thái (miễn backup có bản gốc).
 2. **Máy nhận bản chép qua rsync** nhận cả `monster.ot` lỗi → chạy AppImage → "Sửa lỗi hideout" (có PoeReduxBackups đi kèm).
 3. `player-icon` chưa xem trong game — xác nhận icon to lên thật (cột +8/+12 có đúng là cỡ vẽ, không phải bán kính khác).
-4. Icon quái (monster-icons): bản 3 (minion tự `HideMinimapIcon` qua `IfStat(is_player_minion)`) VẪN treo hideout → bỏ.
-   Đừng thêm component vào monster.ot nữa. Muốn thấy quái: bảng realtime exileapi-rebuild (đọc RAM), không sửa file game.
+4. Icon quái (monster-icons): bản 1–3 hỏng vì MinimapIcon là component CHUNG client/server — thêm vào monster.ot làm lệch với
+   server → vùng đầu (town, không quái) vào được, sang vùng có quái/minion thì treo/báo lỗi rồi disconnect (không phải do hideout).
+   **Bản 4 (đang áp, CHƯA thử)**: object CHỈ CLIENT (`client_only = true`, như quạ/nhện game tự sinh) làm điểm đánh dấu có MinimapIcon,
+   bám theo quái bằng `MoveToObject( parent, force )`; monster.ot chỉ thêm khối `client { Life }` gọi `SpawnObject`. Dùng lại file
+   nhện áo choàng MTX `metadata/critters/spider/witchdoctorspidercloak.ot`. Lỗi → `fix-hideout`.
+
 5. **hide-effects / hide-monsters** (`Patches/Hide.cs`): tắt hết hiệu ứng kể cả mesh 3D (lốc xoáy Tornado) / quái tàng hình.
    - Bản 1 (làm rỗng khối `SkinMesh`): về hideout sau map load **297 giây** → đã restore, bỏ cách này.
    - Bản 2 (hiện tại) chỉ dùng kỹ thuật black-screen upstream, giới hạn thư mục: .pet/.trl → "0", .epk → rỗng,

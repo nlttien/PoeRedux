@@ -28,7 +28,7 @@ try
         "list" => List(),
         "apply" when argv.Count >= 3 => Apply(Ggpk(argv[1]), argv.Skip(2).ToList()),
         "status" when argv.Count >= 2 => Status(Ggpk(argv[1])),
-        "restore" when argv.Count >= 2 => Restore(Ggpk(argv[1]), argv.Skip(2).Select(f => f.Trim('/').ToLowerInvariant()).ToList()),
+        "restore" when argv.Count >= 2 => Restore(Ggpk(argv[1]), argv.Skip(2).Select(f => f.TrimStart('/').ToLowerInvariant()).ToList()),
         "cat" when argv.Count >= 3 => Cat(Ggpk(argv[1]), argv[2]),
         "ls" when argv.Count >= 3 => Ls(Ggpk(argv[1]), argv[2]),
         "grep" when argv.Count >= 4 => Grep(Ggpk(argv[1]), argv[2], argv[3]),
@@ -51,7 +51,7 @@ int Usage()
           poeredux list [--game poe1|poe2]                  liệt kê patch
           poeredux apply <Content.ggpk> <patch>... [opts]   patch, rồi tự đọc lại kiểm tra từng file
           poeredux status <Content.ggpk> [--game ...]       file nào đang patch / gốc / game đã cập nhật
-          poeredux restore <Content.ggpk> [file…] [--force] restore an toàn (chỉ các file nêu, nếu có) (bỏ qua file game đã cập nhật)
+          poeredux restore <Content.ggpk> [file…] [--force] restore an toàn (chỉ các file/thư mục kết thúc '/' nêu ra) (bỏ qua file game đã cập nhật)
           poeredux repair <Content.ggpk> [--dry-run]        KHÔNG cần backup: so với file gốc trên CDN của game, tải
                                                             bản gốc về ghi đè mọi file bị sửa (chữa màn hình đen)
           poeredux ls <Content.ggpk> <thư mục>              liệt kê file trong game (vd: metadata/monsters)

@@ -212,7 +212,7 @@ public static class BackupManager
         using var zip = ZipFile.OpenRead(path);
         var manifest = ReadManifest(zip);
         var legacy = manifest == null;
-        var entries = zip.Entries.Where(IsDataEntry).Where(e => only == null || only.Contains(e.FullName)).ToList();
+        var entries = zip.Entries.Where(IsDataEntry).Where(e => only == null || only.Any(o => o.EndsWith('/') ? e.FullName.StartsWith(o, StringComparison.Ordinal) : e.FullName == o)).ToList();
         int restored = 0, original = 0, changed = 0, missing = 0, done = 0;
 
         foreach (var entry in entries)

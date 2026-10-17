@@ -11,14 +11,11 @@
   kế thừa monster.ot) → đã bỏ khỏi `PatchCatalog`, giữ code để tham khảo.
 
 ## Đang dở / cần kiểm
-1. **Trên máy này** (game ở `/games/nonsteam/POE`): `monster.ot` còn patch monster-icons (ghi nhầm khi game mở).
-   Phiên cũ có tiến trình nền chờ rsync (một máy khác đang kéo thư mục game) xong rồi chạy `fix-hideout` + áp
-   `player-icon --player-icon 3`. Nếu phiên cũ đã đóng, tiến trình đó có thể đã mất → kiểm:
-   ```bash
-   P=/games/gege-home/poeredux/poeredux; G=/games/nonsteam/POE/Content.ggpk
-   $P cat $G metadata/monsters/monster.ot | grep -c PoeRedux     # >0 = chưa gỡ → $P fix-hideout $G
-   $P status $G | grep -i minimapicons                            # chưa có = player-icon chưa áp
-   ```
+1. ~~Máy này: gỡ monster.ot + áp player-icon~~ — XONG 2026-10-17 (sau khi rsync xong): `fix-hideout` gỡ được bằng
+   CDN (1 file); `player-icon` cỡ 3 đã áp ✅. **Lỗi nhỏ cần sửa:** `fix-hideout` báo "Gỡ từ backup: 0 file" — backup có
+   monster.ot nhưng mã băm bản đã patch trong manifest không khớp bản đang có (ghi nhầm bằng chương trình thử nghiệm) →
+   `RestoreSafe` coi là ChangedByGame và bỏ qua dù `force: true` (force chỉ áp cho Unknown). Với file trong danh sách
+   gây lỗi nên restore bất kể trạng thái (miễn backup có bản gốc).
 2. **Máy nhận bản chép qua rsync** nhận cả `monster.ot` lỗi → chạy AppImage → "Sửa lỗi hideout" (có PoeReduxBackups đi kèm).
 3. `player-icon` chưa xem trong game — xác nhận icon to lên thật (cột +8/+12 có đúng là cỡ vẽ, không phải bán kính khác).
 4. Icon quái (monster-icons) nếu muốn làm lại: phải loại minion của người chơi (chỉ gắn cho quái phe địch), thử ở hideout.

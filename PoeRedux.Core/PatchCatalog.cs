@@ -41,6 +41,8 @@ public static class PatchCatalog
             new Corpse(),
             new Delirium(),
             new ReduceEffects(),
+            new HideEffects(),
+            new HideMonsters(),
             new Particles(),
             new Effects(),
             new BlackScreen(),

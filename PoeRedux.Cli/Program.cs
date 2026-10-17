@@ -35,6 +35,7 @@ try
         "ls" when argv.Count >= 3 => Ls(Ggpk(argv[1]), argv[2]),
         "grep" when argv.Count >= 4 => Grep(Ggpk(argv[1]), argv[2], argv[3]),
         "preview-reduce" when argv.Count >= 3 => PreviewReduce(Ggpk(argv[1]), argv[2]),
+        "preview-hide" when argv.Count >= 3 => PreviewHide(Ggpk(argv[1]), argv[2]),
         "fix-hideout" when argv.Count >= 2 => FixHideout(Ggpk(argv[1])),
         "repair" when argv.Count >= 2 => RepairCmd(Ggpk(argv[1])),
         _ => Usage(),
@@ -87,7 +88,7 @@ int Apply(string ggpk, List<string> names)
 {
     var catalog = PatchCatalog.For(game);
     var chosen = names.Contains("all")
-        ? catalog.Where(p => p is not BlackScreen).ToList()
+        ? catalog.Where(p => p is not (BlackScreen or HideEffects or HideMonsters)).ToList()   // hide-*: chọn riêng
         : names.Select(n => catalog.FirstOrDefault(p => PatchCatalog.Slug(p) == n)
                             ?? throw new CliError($"không có patch '{n}' — xem: poeredux list --game {GameArg()}")).ToList();
     if (chosen.Any(p => p is BlackScreen) && !allowBlack)
@@ -332,6 +333,25 @@ int PreviewReduce(string ggpk, string file)
     for (int i = 0; i < before.Length; i++)
         if (before[i] != after[i])
             Console.WriteLine($"- {before[i].Trim()}\n+ {after[i].Trim()}");
+    return 0;
+}
+
+/// <summary>Chỉ đọc: file sau khi qua hide-effects / hide-monsters (patch nào nhận file đó).</summary>
+int PreviewHide(string ggpk, string file)
+{
+    using var bundled = new BundledGGPK(ggpk, false);
+    bundled.Index.ParsePaths();
+    if (!bundled.Index.TryGetFile(file.Trim('/'), out var record))
+        throw new CliError($"không có file '{file}'");
+    var text = Decode(record.Read().Span);
+    foreach (var p in new HideBase[] { new HideEffects(), new HideMonsters() })
+        if (p.Preview(record.Path, text) is { } next && next != text)
+        {
+            Console.WriteLine($"── {PatchCatalog.Slug(p)}: {text.Length} → {next.Length} ký tự");
+            Console.WriteLine(next);
+            return 0;
+        }
+    Console.WriteLine("(hide-effects / hide-monsters không đổi file này)");
     return 0;
 }
 

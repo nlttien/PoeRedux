@@ -19,12 +19,12 @@
 2. **Máy nhận bản chép qua rsync** nhận cả `monster.ot` lỗi → chạy AppImage → "Sửa lỗi hideout" (có PoeReduxBackups đi kèm).
 3. `player-icon` chưa xem trong game — xác nhận icon to lên thật (cột +8/+12 có đúng là cỡ vẽ, không phải bán kính khác).
 4. Icon quái (monster-icons) nếu muốn làm lại: phải loại minion của người chơi (chỉ gắn cho quái phe địch), thử ở hideout.
-5. **hide-effects / hide-monsters** (thêm 2026-10-17, `Patches/Hide.cs`): tắt HẾT hiệu ứng kể cả mesh 3D (lốc xoáy Tornado =
-   `SkinMesh` trong `tornado.ao` — reduce-effects chỉ giảm hạt nên vẫn thấy) / quái tàng hình. Ẩn mesh = giữ khối `SkinMesh` nhưng
-   rỗng ruột (không xoá component → tránh lỗi kiểu R11). Không nằm trong `apply all`. Xem trước: `poeredux preview-hide <ggpk> <file>`.
-   - Máy này: đã áp `hide-effects` (60478 file) — **CHƯA thử trong game**: vào town/hideout/map, xem lốc xoáy mất chưa, có crash không.
-     Lỗi → `restore <ggpk> metadata/effects/ metadata/particles/` (chia đôi thư mục để tìm file thủ phạm).
-   - `hide-monsters` CHƯA áp — chỉ áp sau khi hide-effects ổn (1 patch mới/lần). ⚠ minion/spectre của mình cũng tàng hình.
+5. **hide-effects / hide-monsters** (`Patches/Hide.cs`): tắt hết hiệu ứng kể cả mesh 3D (lốc xoáy Tornado) / quái tàng hình.
+   - Bản 1 (làm rỗng khối `SkinMesh`): về hideout sau map load **297 giây** → đã restore, bỏ cách này.
+   - Bản 2 (hiện tại) chỉ dùng kỹ thuật black-screen upstream, giới hạn thư mục: .pet/.trl → "0", .epk → rỗng,
+     .mat trong art/particles + art/models/effects → material rỗng, .ao kỹ năng bỏ khối client (giữ SkinMesh).
+     Máy này đã áp (156319 file, ~9,5 phút) — **CHƯA thử trong game** (map → hideout, xem load + lốc xoáy).
+   - `hide-monsters` CHƯA áp. ⚠ minion của mình cũng tàng hình. Không nằm trong `apply all`. Xem trước: `preview-hide`.
 
 ## Môi trường
 - .NET 10 SDK: `/games/gege-home/.dotnet` (`. /games/gege-home/dotnet-env.sh`). Ổ `/` gần đầy — mọi build/tmp để trên `/games`.

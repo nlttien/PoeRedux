@@ -233,9 +233,7 @@ public class Effects : IPatch
         return false;
     }
 
-    /// <summary>Bỏ mọi khối con của client trừ <paramref name="keepSet"/>; khối trong <paramref name="emptySet"/> giữ tên
-    /// (component vẫn tồn tại → không lỗi "Component does not exist") nhưng xoá ruột (vd SkinMesh không còn mesh).</summary>
-    internal static string StripClientBlocks(string data, HashSet<string> keepSet, IReadOnlySet<string>? emptySet = null)
+    internal static string StripClientBlocks(string data, HashSet<string> keepSet)
     {
         if (!FindTopLevelBlock(data, "client", out int clientOpenBrace))
             return data;
@@ -268,12 +266,7 @@ public class Effects : IPatch
             // Append text before this block (whitespace/comments/etc.)
             result.Append(clientBody.AsSpan(pos, nameStart - pos));
 
-            if (emptySet != null && emptySet.Contains(blockName))
-            {
-                result.Append(clientBody.AsSpan(nameStart, blockOpenBrace + 1 - nameStart));
-                result.Append("\r\n\t}");
-            }
-            else if (keepSet.Contains(blockName))
+            if (keepSet.Contains(blockName))
             {
                 result.Append(clientBody.AsSpan(nameStart, blockEnd - nameStart));
             }

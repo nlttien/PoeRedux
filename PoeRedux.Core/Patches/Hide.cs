@@ -7,8 +7,9 @@ namespace PoeRedux.Patches;
 /// <summary>
 /// Phần dùng chung của hide-effects / hide-monsters: duyệt file theo thư mục, đọc từ bản GỐC (backup nếu đã patch)
 /// để áp lại hay áp sau reduce-effects đều ra cùng kết quả.
-/// Ẩn mesh = giữ khối SkinMesh nhưng xoá ruột: component vẫn còn nên script/khối con tham chiếu tới nó không lỗi
-/// "Component … does not exist" (FIELD_JOURNAL R11), chỉ không còn gì để vẽ.
+/// Chỉ dùng kỹ thuật black-screen của upstream đã chạy thực tế (áp cho cả game), ở đây giới hạn theo thư mục:
+///   .pet/.trl → "0" · .epk → rỗng · .mat → material rỗng (mesh còn nhưng không vẽ) · .ao → bỏ khối client trừ Keep.
+/// ✗ KHÔNG làm rỗng khối SkinMesh (bản 1, 2026-10-17): về hideout sau map load 297 giây.
 /// </summary>
 public abstract class HideBase : IPatch
 {
@@ -17,9 +18,13 @@ public abstract class HideBase : IPatch
 
     /// <summary>Khối client giữ nguyên (animation điều khiển event/socket, âm thanh, khung xương).</summary>
     protected static readonly HashSet<string> Keep = new(StringComparer.Ordinal)
-        { "ClientAnimationController", "SoundEvents", "BoneGroups", "AnimatedRender" };
+        { "ClientAnimationController", "SoundEvents", "BoneGroups", "AnimatedRender", "SkinMesh" };
 
-    protected static readonly HashSet<string> Empty = new(StringComparer.Ordinal) { "SkinMesh" };
+    /// <summary>Material không có graph nào (Black/Mat.cs) → mesh dùng nó không vẽ gì.</summary>
+    protected const string EmptyMaterial = "{\r\n\"version\":4,\r\n\"defaultgraph\": {\r\n \"version\":3\r\n }\r\n}";
+
+    /// <summary>Thay hẳn nội dung (luôn UTF-16 + BOM như upstream) — khác với sửa văn bản giữ nguyên mã hoá.</summary>
+    protected sealed record Replace(string Text);
 
     /// <summary>Cơ chế cần nhìn thấy để né / làm league (gộp danh sách bảo vệ của Effects + Particles Patch).</summary>
     protected static readonly string[] Protect =
@@ -60,12 +65,17 @@ public abstract class HideBase : IPatch
 
     /// <summary>Xem trước (chỉ đọc): nội dung mới của file, null = patch không đổi file này.</summary>
     public string? Preview(string path, string text) =>
-        Roots.Any(r => path.StartsWith(r, StringComparison.Ordinal)) ? Transform(path, text) : null;
+        (Roots.Any(r => path.StartsWith(r, StringComparison.Ordinal)) ? Transform(path, text) : null) switch
+        {
+            Replace r => r.Text,
+            string t => t,
+            _ => null,
+        };
 
     protected abstract string[] Roots { get; }
 
-    /// <summary>Nội dung mới, hoặc null = giữ nguyên file.</summary>
-    protected abstract string? Transform(string path, string text);
+    /// <summary>Nội dung mới (string = giữ mã hoá gốc, <see cref="Replace"/> = UTF-16), hoặc null = giữ nguyên file.</summary>
+    protected abstract object? Transform(string path, string text);
 
     public void Apply(DirectoryNode root)
     {
@@ -80,10 +90,18 @@ public abstract class HideBase : IPatch
             var original = BackupManager.ReadOriginal(record);
             var unicode = original.Length >= 2 && original[0] == 0xFF && original[1] == 0xFE;
             var text = unicode ? Encoding.Unicode.GetString(original, 2, original.Length - 2) : Encoding.UTF8.GetString(original);
-            var next = Transform(record.Path, text);
-            if (next is null || next == text) continue;
-
-            byte[] bytes = unicode || next == "0" ? [0xFF, 0xFE, .. Encoding.Unicode.GetBytes(next)] : Encoding.UTF8.GetBytes(next);
+            byte[] bytes;
+            switch (Transform(record.Path, text))
+            {
+                case Replace r:
+                    bytes = [0xFF, 0xFE, .. Encoding.Unicode.GetBytes(r.Text)];
+                    break;
+                case string next when next != text:
+                    bytes = unicode ? [0xFF, 0xFE, .. Encoding.Unicode.GetBytes(next)] : Encoding.UTF8.GetBytes(next);
+                    break;
+                default:
+                    continue;
+            }
             if (bytes.AsSpan().SequenceEqual(record.Read().Span)) continue;   // đã đúng
             BackupManager.RecordOriginal(record);
             record.Write(bytes);
@@ -118,8 +136,9 @@ public abstract class HideBase : IPatch
 }
 
 /// <summary>
-/// Tắt HẾT hiệu ứng kỹ năng (người chơi + quái + skin MTX): hạt .pet/.trl → rỗng, và .ao trong metadata/effects mất mọi
-/// thứ vẽ được kể cả mesh 3D (vd lốc xoáy Tornado = SkinMesh tornado.sm — Effects/Reduce Effects không đụng tới).
+/// Tắt HẾT hiệu ứng kỹ năng (người chơi + quái + skin MTX): hạt .pet/.trl, gói hiệu ứng .epk, khối client của .ao kỹ năng
+/// (như Effects Patch), và material mesh hiệu ứng trong art/particles + art/models/effects — mesh 3D như lốc xoáy Tornado
+/// (tornado.sm, material art/particles/tornado_spell/*.mat) mà Effects/Reduce Effects không đụng tới.
 /// Giữ cơ chế boss/league cần né (<see cref="HideBase.Protect"/>).
 /// </summary>
 public class HideEffects : HideBase
@@ -127,28 +146,35 @@ public class HideEffects : HideBase
     public override string Name => "Hide Effects Patch";
     public override object Description => "Removes ALL skill effects incl. 3D meshes (tornado…), particles and trails. Boss/league mechanics stay visible.";
 
-    protected override string[] Roots => ["metadata/effects/", "metadata/particles/"];
+    protected override string[] Roots => ["metadata/effects/", "metadata/particles/", "art/particles/", "art/models/effects/"];
 
-    protected override string? Transform(string path, string text)
+    protected override object? Transform(string path, string text)
     {
         if (Protected(path)) return null;
-        if (Ext(path, ".pet", ".trl")) return "0";
-        if (Ext(path, ".ao")) return Effects.StripClientBlocks(text, Keep, Empty);
+        if (Ext(path, ".pet", ".trl")) return new Replace("0");
+        if (Ext(path, ".epk")) return new Replace("");
+        if (Ext(path, ".mat")) return new Replace(EmptyMaterial);
+        if (Ext(path, ".ao") && path.StartsWith("metadata/effects/spells/", StringComparison.Ordinal))
+            return Effects.StripClientBlocks(text, Keep);
         return null;
     }
 }
 
 /// <summary>
-/// Quái tàng hình: .ao trong metadata/monsters mất mesh, đồ gắn, hạt, vết decal — vẫn còn trong game (máu, va chạm, AI,
-/// âm thanh, thanh máu trên đầu). ⚠ Minion/spectre/totem của NGƯỜI CHƠI dùng chung file → cũng tàng hình.
+/// Quái tàng hình: material model quái (art/models/monsters) rỗng; .ao/.epk quái mất đồ gắn, hạt, decal — vẫn còn trong game
+/// (máu, va chạm, AI, âm thanh, thanh máu trên đầu). ⚠ Minion/spectre/totem của NGƯỜI CHƠI dùng chung file → cũng tàng hình.
 /// </summary>
 public class HideMonsters : HideBase
 {
     public override string Name => "Hide Monsters Patch";
     public override object Description => "Makes monsters invisible (no model/particles; life bars, sounds, AI unchanged). Your minions too.";
 
-    protected override string[] Roots => ["metadata/monsters/"];
+    protected override string[] Roots => ["metadata/monsters/", "art/models/monsters/"];
 
-    protected override string? Transform(string path, string text) =>
-        Ext(path, ".ao") && !Protected(path) ? Effects.StripClientBlocks(text, Keep, Empty) : null;
+    protected override object? Transform(string path, string text) =>
+        Protected(path) ? null
+        : Ext(path, ".mat") ? new Replace(EmptyMaterial)
+        : Ext(path, ".epk") ? new Replace("")
+        : Ext(path, ".ao") ? Effects.StripClientBlocks(text, Keep)
+        : null;
 }

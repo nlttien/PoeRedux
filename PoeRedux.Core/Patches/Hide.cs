@@ -175,7 +175,8 @@ public class HideMonsters : HideBase
     public override string Name => "Hide Monsters Patch";
     public override object Description => "Makes monsters invisible (no model/particles; life bars, sounds, AI unchanged). Your minions too.";
 
-    protected override string[] Roots => ["metadata/monsters/", "art/models/monsters/"];
+    // material model quái thật sự nằm ở art/textures/monsters (file .sm trỏ tới), art/models/monsters chỉ có ít
+    protected override string[] Roots => ["metadata/monsters/", "art/models/monsters/", "art/textures/monsters/"];
 
     protected override object? Transform(string path, string text) =>
         Protected(path) ? null

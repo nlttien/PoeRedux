@@ -8,7 +8,7 @@ namespace PoeRedux.Patches;
 /// Phần dùng chung của hide-effects / hide-monsters: duyệt file theo thư mục, đọc từ bản GỐC (backup nếu đã patch)
 /// để áp lại hay áp sau reduce-effects đều ra cùng kết quả.
 /// Chỉ dùng kỹ thuật black-screen của upstream đã chạy thực tế (áp cho cả game), ở đây giới hạn theo thư mục:
-///   .pet/.trl → "0" · .epk → rỗng · .mat → material rỗng (mesh còn nhưng không vẽ) · .ao → bỏ khối client trừ Keep.
+///   .pet/.trl → "0" · .epk → rỗng · .mat → material tàng hình (invisible.fxgraph) · .ao → bỏ khối client trừ Keep.
 /// ✗ KHÔNG làm rỗng khối SkinMesh (bản 1, 2026-10-17): về hideout sau map load 297 giây.
 /// </summary>
 public abstract class HideBase : IPatch
@@ -20,8 +20,13 @@ public abstract class HideBase : IPatch
     protected static readonly HashSet<string> Keep = new(StringComparer.Ordinal)
         { "ClientAnimationController", "SoundEvents", "BoneGroups", "AnimatedRender", "SkinMesh" };
 
-    /// <summary>Material không có graph nào (Black/Mat.cs) → mesh dùng nó không vẽ gì.</summary>
-    protected const string EmptyMaterial = "{\r\n\"version\":4,\r\n\"defaultgraph\": {\r\n \"version\":3\r\n }\r\n}";
+    /// <summary>
+    /// Material tàng hình: graph có sẵn của game invisible.fxgraph (AlphaTest, alpha = 0 → loại mọi pixel).
+    /// ✗ Material rỗng không graph (Black/Mat.cs) KHÔNG ẩn — game vẽ mesh bằng màu xanh lá mặc định (thử 2026-10-17).
+    /// </summary>
+    protected const string EmptyMaterial =
+        "{\"version\":4,\"defaultgraph\":{\"version\":3,\"overriden_blend_mode\":\"AlphaTest\"}," +
+        "\"graphinstances\":[{\"parent\":\"Metadata/Effects/Graphs/General/invisible.fxgraph\"}]}";
 
     /// <summary>Thay hẳn nội dung (luôn UTF-16 + BOM như upstream) — khác với sửa văn bản giữ nguyên mã hoá.</summary>
     protected sealed record Replace(string Text);
@@ -87,7 +92,8 @@ public abstract class HideBase : IPatch
         foreach (var file in files)
         {
             var record = file.Record;
-            var original = BackupManager.ReadOriginal(record);
+            // chỉ .ao cần đọc bản gốc (sửa văn bản); .pet/.epk/.mat thay hẳn → bỏ qua đọc zip backup (phần chậm nhất)
+            var original = Ext(record.Path, ".ao") ? BackupManager.ReadOriginal(record) : [];
             var unicode = original.Length >= 2 && original[0] == 0xFF && original[1] == 0xFE;
             var text = unicode ? Encoding.Unicode.GetString(original, 2, original.Length - 2) : Encoding.UTF8.GetString(original);
             byte[] bytes;

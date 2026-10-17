@@ -29,7 +29,7 @@ public static class Repair
         return url;
     }
 
-    public static int Run(string ggpk, string cdn, string cacheDir, bool dryRun, Action<string> log)
+    public static int Run(string ggpk, string cdn, string cacheDir, bool dryRun, Action<string> log, IReadOnlyCollection<string>? only = null)
     {
         var bundles2 = Path.Combine(cacheDir, "Bundles2");
         Directory.CreateDirectory(bundles2);
@@ -55,6 +55,7 @@ public static class Repair
         int onlyLocal = 0;
         foreach (var (hash, lr) in local.Index.Files)
         {
+            if (only != null && !only.Contains(lr.Path)) continue;
             if (!remote.Files.TryGetValue(hash, out var rr)) { onlyLocal++; continue; }
             if (lr.Size != rr.Size || lr.Offset != rr.Offset || lr.BundleRecord.Path != rr.BundleRecord.Path)
                 changed.Add((lr, rr));

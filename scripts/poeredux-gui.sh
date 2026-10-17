@@ -111,6 +111,7 @@ while true; do
         "Patch"    "Chọn patch (zoom camera, icon quái, tắt sương mù…) rồi áp dụng" \
         "Trạng thái" "Xem file nào đang được patch" \
         "Gỡ patch" "Trả các file đã patch về bản gốc (dùng backup)" \
+        "Sửa lỗi hideout" "Không về hideout được (game treo): gỡ patch gây lỗi, giữ các patch khác" \
         "Sửa game" "Game lỗi / màn hình đen: tải bản gốc từ máy chủ game" \
         "Đổi game" "Chuyển PoE1 ⇄ PoE2 hoặc chọn file Content.ggpk khác" \
         2>/dev/null) || exit 0
@@ -119,6 +120,7 @@ while true; do
         "Trạng thái") run "Trạng thái" status "$GGPK" ;;
         "Gỡ patch")   zenity --question --title="$TITLE" --text="Gỡ mọi patch về bản gốc? (game phải TẮT)" 2>/dev/null \
                           && run "Đang gỡ patch" restore "$GGPK" ;;
+        "Sửa lỗi hideout") run "Đang sửa lỗi hideout" fix-hideout "$GGPK" ;;
         "Sửa game")   do_repair ;;
         "Đổi game")
             g=$(zenity --list --radiolist --title="$TITLE" --column="" --column="Game" \

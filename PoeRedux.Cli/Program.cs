@@ -33,6 +33,7 @@ try
         "ls" when argv.Count >= 3 => Ls(Ggpk(argv[1]), argv[2]),
         "grep" when argv.Count >= 4 => Grep(Ggpk(argv[1]), argv[2], argv[3]),
         "preview-reduce" when argv.Count >= 3 => PreviewReduce(Ggpk(argv[1]), argv[2]),
+        "fix-hideout" when argv.Count >= 2 => FixHideout(Ggpk(argv[1])),
         "repair" when argv.Count >= 2 => RepairCmd(Ggpk(argv[1])),
         _ => Usage(),
     };
@@ -54,6 +55,7 @@ int Usage()
           poeredux restore <Content.ggpk> [file…] [--force] restore an toàn (chỉ các file/thư mục kết thúc '/' nêu ra) (bỏ qua file game đã cập nhật)
           poeredux repair <Content.ggpk> [--dry-run]        KHÔNG cần backup: so với file gốc trên CDN của game, tải
                                                             bản gốc về ghi đè mọi file bị sửa (chữa màn hình đen)
+          poeredux fix-hideout <Content.ggpk>               chữa lỗi treo khi về hideout (gỡ patch icon quái ở monster.ot)
           poeredux ls <Content.ggpk> <thư mục>              liệt kê file trong game (vd: metadata/monsters)
           poeredux grep <Content.ggpk> <thư mục> <chuỗi>    tìm file văn bản (.ot/.otc/.ao/.epk/.hlsl…) có chuỗi
           poeredux cat <Content.ggpk> <file>                in nội dung 1 file (tự giải mã UTF-16; --raw = byte gốc)
@@ -252,6 +254,51 @@ static List<string> ProcessesUsing(string file)
         catch (Exception e) when (e is UnauthorizedAccessException or IOException) { }
     }
     return found;
+}
+
+int FixHideout(string ggpk)
+{
+    // File mà patch cũ làm treo game khi vào hideout (monster-icons: minion/spectre cũng kế thừa monster.ot).
+    string[] HideoutBreakers = ["metadata/monsters/monster.ot"];
+    Preflight(ggpk);
+    List<string> bad;
+    using (var bundled = new BundledGGPK(ggpk, false))
+    {
+        bundled.Index.ParsePaths();
+        bad = HideoutBreakers.Where(f => bundled.Index.TryGetFile(f, out var r) && Decode(r.Read().Span).Contains("PoeRedux")).ToList();
+    }
+    if (bad.Count == 0)
+    {
+        Console.WriteLine("✅ Không có patch nào gây treo hideout — monster.ot đang là bản gốc.");
+        return 0;
+    }
+
+    // 1) Có backup → trả về bản gốc từ backup
+    if (BackupManager.HasBackup(game))
+    {
+        using var bundled = new BundledGGPK(ggpk, false);
+        bundled.Index.ParsePaths();
+        var r = BackupManager.RestoreSafe(bundled.Index, game, force: true, null, bad);
+        Console.WriteLine($"Gỡ từ backup: {r.Restored} file");
+        bad = bad.Where(f => bundled.Index.TryGetFile(f, out var rec) && Decode(rec.Read().Span).Contains("PoeRedux")).ToList();
+    }
+    // 2) Không có backup (máy khác / patch bằng bản cũ) → tải bản gốc của riêng các file đó từ máy chủ game
+    if (bad.Count > 0)
+    {
+        var cdn = cdnOpt ?? PoeRedux.Cli.Repair.CdnFromLog(ggpk)
+            ?? throw new CliError("không đọc được phiên bản game từ logs/Client.txt — chỉ định --cdn https://patch.poecdn.com/<phiên bản>/");
+        PoeRedux.Cli.Repair.Run(ggpk, cdn, Path.Combine(BackupManager.BackupDirectory!, "cdn"), false, Console.WriteLine, bad);
+    }
+
+    using (var bundled = new BundledGGPK(ggpk, false))
+    {
+        bundled.Index.ParsePaths();
+        var still = HideoutBreakers.Where(f => bundled.Index.TryGetFile(f, out var r) && Decode(r.Read().Span).Contains("PoeRedux")).ToList();
+        if (still.Count > 0)
+            throw new CliError($"vẫn còn patch trong {string.Join(", ", still)}");
+    }
+    Console.WriteLine("✅ Đã gỡ — vào game về hideout lại được. Các patch khác (zoom, giảm hiệu ứng…) vẫn giữ.");
+    return 0;
 }
 
 int RepairCmd(string ggpk)

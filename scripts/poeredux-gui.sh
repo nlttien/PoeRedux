@@ -21,11 +21,12 @@ GAME="poe1"
 LAST_PATCHES="camera"
 ZOOM="2.4"
 EFFECTS="50"
+PICON="3"
 # shellcheck source=/dev/null
 [ -f "$CONF" ] && . "$CONF"
 
 save() {
-    printf 'GGPK=%q\nGAME=%q\nLAST_PATCHES=%q\nZOOM=%q\nEFFECTS=%q\n' "$GGPK" "$GAME" "$LAST_PATCHES" "$ZOOM" "$EFFECTS" > "$CONF"
+    printf 'GGPK=%q\nGAME=%q\nLAST_PATCHES=%q\nZOOM=%q\nEFFECTS=%q\nPICON=%q\n' "$GGPK" "$GAME" "$LAST_PATCHES" "$ZOOM" "$EFFECTS" "$PICON" > "$CONF"
 }
 
 err() { zenity --error --title="$TITLE" --width=420 --text="$1" 2>/dev/null; }
@@ -84,6 +85,11 @@ do_patch() {
         EFFECTS=$(zenity --scale --title="$TITLE — giảm hiệu ứng kỹ năng" --text="Giữ lại bao nhiêu % hạt hiệu ứng (50 = giảm một nửa)" \
             --min-value=5 --max-value=95 --step=5 --value="$EFFECTS" 2>/dev/null) || return
         args+=(--effects "$(awk -v e="$EFFECTS" 'BEGIN{printf "%.2f", e/100}')")
+    fi
+    if [[ " $chosen " == *" player-icon "* ]]; then
+        PICON=$(zenity --scale --title="$TITLE — icon người chơi" --text="Cỡ icon của bạn trên minimap (gốc = 1)" \
+            --min-value=1 --max-value=6 --step=1 --value="$PICON" 2>/dev/null) || return
+        args+=(--player-icon "$PICON")
     fi
     LAST_PATCHES="$chosen"
     save

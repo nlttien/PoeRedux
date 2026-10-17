@@ -11,6 +11,7 @@ public static class PatchCatalog
         [
             new Camera(),
             new Minimap(),
+            new PlayerIcon(),
             new ColorMods2(),
             new MonsterHP(),
             new AtlasFog(),
@@ -30,6 +31,7 @@ public static class PatchCatalog
         [
             new Camera(),
             new Minimap(),
+            new PlayerIcon(),
             new ColorMods(),
             new MonsterHP(),
             new Fog(),

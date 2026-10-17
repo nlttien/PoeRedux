@@ -11,6 +11,8 @@ var game = Option("--game") is "poe2" ? PoeGame.PoE2 : PoeGame.PoE1;
 var zoom = Option("--zoom") is { } z ? double.Parse(z, CultureInfo.InvariantCulture) : 2.4;
 var backupDir = Option("--backup-dir");
 var monsterIcon = Option("--monster-icon");
+var playerIcon = Option("--player-icon") is { } pi ? int.Parse(pi, CultureInfo.InvariantCulture) : 3;
+var party = Flag("--party");
 var effects = Option("--effects") is { } ef ? double.Parse(ef, CultureInfo.InvariantCulture) : 0.5;
 var force = Flag("--force");
 var allowBlack = Flag("--allow-black-screen");
@@ -63,6 +65,7 @@ int Usage()
         Tuỳ chọn:
           --game poe1|poe2        mặc định poe1
           --zoom 2.4              mức zoom cho patch camera (1.2–2.4, lớn = nhìn xa hơn)
+          --player-icon 3         player-icon: cỡ icon người chơi trên minimap (gốc 1, 2–6 = to dần); --party: cả người cùng party
           --effects 0.5           reduce-effects: phần hiệu ứng giữ lại (0.5 = còn 50%, 0.3 = còn 30%)
           --monster-icon <tên>    icon cho patch monster-icons (mặc định LootFilterSmallRedCircle;
                                   tên khác: LootFilterMediumYellowStar, ExpeditionRegularMonster…)
@@ -91,6 +94,8 @@ int Apply(string ggpk, List<string> names)
         throw new CliError("patch black-screen làm màn hình game ĐEN (đúng chức năng). Muốn thật thì thêm --allow-black-screen");
     foreach (var p in chosen.OfType<Camera>())
         p.ZoomLevel = Math.Clamp(zoom, 1.2, 2.4);
+    foreach (var p in chosen.OfType<PlayerIcon>())
+        (p.Size, p.IncludeParty) = (Math.Clamp(playerIcon, 1, 6), party);
     foreach (var p in chosen.OfType<ReduceEffects>())
         p.Factor = Math.Clamp(effects, 0.05, 0.95);
     if (monsterIcon != null)

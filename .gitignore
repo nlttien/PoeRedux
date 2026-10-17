@@ -401,4 +401,4 @@ FodyWeavers.xsd
 .DS_Store
 
 # oo2core libraries
-oo2core/
+oo2core/dist/

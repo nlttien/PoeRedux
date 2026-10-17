@@ -5,6 +5,7 @@ using PoeRedux.Services;
 namespace PoeRedux.Patches;
 
 /// <summary>
+/// KHÔNG có trong PatchCatalog: bản này làm game TREO khi vào hideout (minion/spectre cũng kế thừa monster.ot).
 /// Thêm icon minimap cho mọi quái, theo đúng bố cục quái Prophecy của game (vd prophecyspider.ot):
 /// MinimapIcon ở tầng chung của metadata/monsters/monster.ot (mọi quái kế thừa) + client { Life { on_death = HideMinimapIcon() } }.
 /// KHÔNG đặt MinimapIcon chỉ trong client { } — game báo "Component MinimapIcon does not exist" khi object chưa có component đó.

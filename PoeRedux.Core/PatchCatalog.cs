@@ -43,7 +43,6 @@ public static class PatchCatalog
             new ReduceEffects(),
             new HideEffects(),
             new HideMonsters(),
-            new MonsterIcons(),
             new Particles(),
             new Effects(),
             new BlackScreen(),

@@ -18,13 +18,14 @@
    gây lỗi nên restore bất kể trạng thái (miễn backup có bản gốc).
 2. **Máy nhận bản chép qua rsync** nhận cả `monster.ot` lỗi → chạy AppImage → "Sửa lỗi hideout" (có PoeReduxBackups đi kèm).
 3. `player-icon` chưa xem trong game — xác nhận icon to lên thật (cột +8/+12 có đúng là cỡ vẽ, không phải bán kính khác).
-4. Icon quái (monster-icons) nếu muốn làm lại: phải loại minion của người chơi (chỉ gắn cho quái phe địch), thử ở hideout.
+4. Icon quái (monster-icons): bản 3 (minion tự `HideMinimapIcon` qua `IfStat(is_player_minion)`) VẪN treo hideout → bỏ.
+   Đừng thêm component vào monster.ot nữa. Muốn thấy quái: bảng realtime exileapi-rebuild (đọc RAM), không sửa file game.
 5. **hide-effects / hide-monsters** (`Patches/Hide.cs`): tắt hết hiệu ứng kể cả mesh 3D (lốc xoáy Tornado) / quái tàng hình.
    - Bản 1 (làm rỗng khối `SkinMesh`): về hideout sau map load **297 giây** → đã restore, bỏ cách này.
    - Bản 2 (hiện tại) chỉ dùng kỹ thuật black-screen upstream, giới hạn thư mục: .pet/.trl → "0", .epk → rỗng,
      .mat trong art/particles + art/models/effects → material rỗng, .ao kỹ năng bỏ khối client (giữ SkinMesh).
      Máy này đã áp (156319 file, ~9,5 phút) — **CHƯA thử trong game** (map → hideout, xem load + lốc xoáy).
-   - `hide-monsters` CHƯA áp. ⚠ minion của mình cũng tàng hình. Không nằm trong `apply all`. Xem trước: `preview-hide`.
+   - `hide-monsters` đã áp (gồm art/textures/monsters) — chưa xác nhận ổn ở hideout khi không có monster-icons. ⚠ minion cũng tàng hình. Không nằm trong `apply all`. Xem trước: `preview-hide`.
 
 ## Môi trường
 - .NET 10 SDK: `/games/gege-home/.dotnet` (`. /games/gege-home/dotnet-env.sh`). Ổ `/` gần đầy — mọi build/tmp để trên `/games`.

@@ -7,7 +7,8 @@ namespace PoeRedux.Patches;
 /// <summary>
 /// Bản 2 làm game TREO khi vào hideout (minion/spectre cũng kế thừa monster.ot). Bản 3 (2026-10-17): minion của người chơi
 /// tự ẩn icon lúc xuất hiện — client { Life { on_spawned_alive = IfStat( is_player_minion, 1, HideMinimapIcon ) } }
-/// (IfStat như hellscapemonsterbase.ot; stat is_player_minion có trong data/stats). CHƯA thử trong game — treo thì fix-hideout.
+/// (IfStat như hellscapemonsterbase.ot). ✗ THỬ 2026-10-17: VẪN treo hideout (ngay từ town về) → lại bỏ khỏi PatchCatalog.
+/// Treo do chính component MinimapIcon trên entity ở hideout, không phải do icon hiện ra.
 /// Thêm icon minimap cho mọi quái, theo đúng bố cục quái Prophecy của game (vd prophecyspider.ot):
 /// MinimapIcon ở tầng chung của metadata/monsters/monster.ot (mọi quái kế thừa) + client { Life { on_death = HideMinimapIcon() } }.
 /// KHÔNG đặt MinimapIcon chỉ trong client { } — game báo "Component MinimapIcon does not exist" khi object chưa có component đó.

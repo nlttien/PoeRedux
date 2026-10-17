@@ -88,7 +88,7 @@ int Apply(string ggpk, List<string> names)
 {
     var catalog = PatchCatalog.For(game);
     var chosen = names.Contains("all")
-        ? catalog.Where(p => p is not (BlackScreen or HideEffects or HideMonsters)).ToList()   // hide-*: chọn riêng
+        ? catalog.Where(p => p is not (BlackScreen or HideEffects or HideMonsters or MonsterIcons)).ToList()   // hide-*: chọn riêng
         : names.Select(n => catalog.FirstOrDefault(p => PatchCatalog.Slug(p) == n)
                             ?? throw new CliError($"không có patch '{n}' — xem: poeredux list --game {GameArg()}")).ToList();
     if (chosen.Any(p => p is BlackScreen) && !allowBlack)

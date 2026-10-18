@@ -60,7 +60,6 @@ do_patch() {
     while IFS= read -r line; do
         slug=$(awk '{print $1}' <<<"$line")
         [ -z "$slug" ] && continue
-        [ "$slug" = "black-screen" ] && continue   # làm đen màn hình — không đưa vào giao diện
         name=$(sed -E 's/^ +[^ ]+ +//' <<<"$line")
         sel=FALSE
         [[ " $LAST_PATCHES " == *" $slug "* ]] && sel=TRUE
@@ -85,6 +84,11 @@ do_patch() {
         EFFECTS=$(zenity --scale --title="$TITLE — giảm hiệu ứng kỹ năng" --text="Giữ lại bao nhiêu % hạt hiệu ứng (50 = giảm một nửa)" \
             --min-value=5 --max-value=95 --step=5 --value="$EFFECTS" 2>/dev/null) || return
         args+=(--effects "$(awk -v e="$EFFECTS" 'BEGIN{printf "%.2f", e/100}')")
+    fi
+    if [[ " $chosen " == *" black-screen "* ]]; then
+        zenity --question --title="$TITLE — black-screen" --width=460 \
+            --text="Patch black-screen làm màn hình game ĐEN HOÀN TOÀN (dùng khi treo máy / chạy bot).\n\nTiếp tục?" 2>/dev/null || return
+        args+=(--allow-black-screen)
     fi
     if [[ " $chosen " == *" player-icon "* ]]; then
         PICON=$(zenity --scale --title="$TITLE — icon người chơi" --text="Cỡ icon của bạn trên minimap (gốc = 1)" \

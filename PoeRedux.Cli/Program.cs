@@ -120,6 +120,7 @@ int Apply(string ggpk, List<string> names)
             {
                 var before = BackupManager.SessionPaths.Count;
                 Console.Write($"  … {p.Name}");
+                var sw = System.Diagnostics.Stopwatch.StartNew();
                 try
                 {
                     p.Apply(tree);
@@ -130,7 +131,7 @@ int Apply(string ggpk, List<string> names)
                     failed[p] = e.Message;
                 }
                 touched[p] = BackupManager.SessionPaths.Skip(before).Distinct().ToList();
-                Console.WriteLine(failed.TryGetValue(p, out var err) ? $"  ⛔ lỗi: {err}" : $"  ({touched[p].Count} file)");
+                Console.WriteLine(failed.TryGetValue(p, out var err) ? $"  ⛔ lỗi: {err}" : $"  ({touched[p].Count} file, {sw.ElapsedMilliseconds:N0} ms)");
             }
         }
         finally

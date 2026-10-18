@@ -45,11 +45,17 @@ run() {
     local log rc
     log=$(mktemp)
     ( "$BIN" "$@" --game "$GAME" >"$log" 2>&1; echo $? >"$log.rc" ) &
-    local pid=$!
-    ( while kill -0 $pid 2>/dev/null; do echo "# $(tail -n1 "$log" 2>/dev/null)"; sleep 0.5; done ) |
-        zenity --progress --pulsate --auto-close --no-cancel --title="$TITLE" --width=520 --text="$title…" 2>/dev/null
+    local pid=$! t0
+    t0=$(date +%s%3N)
+    # đồng hồ đếm lên (ms) + dòng log mới nhất, cập nhật mỗi 0.1s
+    ( while kill -0 $pid 2>/dev/null; do
+        printf '# ⏱ %s ms — %s\n' "$(LC_ALL=C printf "%'d" $(( $(date +%s%3N) - t0 )))" "$(tail -n1 "$log" 2>/dev/null)"
+        sleep 0.1
+      done ) |
+        zenity --progress --pulsate --auto-close --no-cancel --title="$TITLE" --width=560 --text="$title…" 2>/dev/null
     wait $pid
     rc=$(cat "$log.rc" 2>/dev/null || echo 1)
+    printf '\n⏱ Tổng thời gian: %s ms\n' "$(LC_ALL=C printf "%'d" $(( $(date +%s%3N) - t0 )))" >>"$log"
     zenity --text-info --title="$TITLE — $title" --width=760 --height=480 --filename="$log" 2>/dev/null
     rm -f "$log" "$log.rc"
     return "$rc"
